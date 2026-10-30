@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cogpitch 口播练习器</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        darkbg: '#121622',
+        darkcard: '#1a2030',
+        darkcard2: '#242b3d',
+        amberbtn: '#f59e0b'
+      }
+    }
+  }
+}
+</script>
+<style>
+*{box-sizing:border-box}
+body{font-family:system-ui, -apple-system, sans-serif}
+.history-panel{
+  transform: translateX(100%);
+  transition: transform .3s ease;
+}
+.history-panel.open{transform: translateX(0)}
+.domain-panel{
+  transform: translateY(-10px);
+  opacity: 0;
+  pointer-events: none;
+  transition: .2s ease;
+}
+.domain-panel.open{
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+.scroll-active #keyword,
+.scroll-active #prompt{
+  animation: fastScroll .06s infinite;
+}
+@keyframes fastScroll{
+  0%{opacity:.35}
+  50%{opacity:1}
+  100%{opacity:.35}
+}
+</style>
+</head>
+<body class="dark bg-darkbg text-slate-100 min-h-screen relative overflow-x-hidden">
+
+<div class="max-w-5xl mx-auto p-4">
+
+  <!-- 顶部栏：更小 -->
+  <div class="flex justify-between items-center mb-3">
+    <h1 class="text-2xl font-bold tracking-wide">Cogpitch</h1>
+    <button id="openHistoryBtn" class="bg-darkcard2 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-sm">历史记录</button>
+  </div>
+
+  <!-- 顶部控制面板：电脑/平板单屏紧凑布局 -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+    <!-- 领域选择 -->
+    <div class="relative">
+      <label class="block text-xs text-slate-400 mb-1">选择领域</label>
+      <button id="domainBtn" class="w-full bg-darkcard border border-slate-600 rounded-lg px-3 py-2 text-left flex justify-between items-center text-sm">
+        <span id="domainBtnText" class="truncate">全部领域</span>
+        <span class="text-slate-400">▾</span>
+      </button>
+      <div id="domainPanel" class="domain-panel absolute left-0 right-0 top-full mt-2 bg-darkcard border border-slate-600 rounded-xl p-3 z-40 shadow-xl">
+        <div class="grid grid-cols-2 gap-2 max-h-[320px] overflow-y-auto">
+          <label class="flex items-center gap-2 bg-darkcard2 px-3 py-2 rounded-lg text-sm">
+            <input type="checkbox" class="domain-check" value="psych" checked>心理学
+          </label>
+          <label class="flex items-center gap-2 bg-darkcard2 px-3 py-2 rounded-lg text-sm">
+            <input type="checkbox" class="domain-check" value="phil" checked>哲学
+          </label>
+          <label class="flex items-center gap-2 bg-darkcard2 px-3 py-2 rounded-lg text-sm">
+            <input type="checkbox" class="domain-check" value="history" checked>历史
+          </label>
+          <label class="flex items-center gap-2 bg-darkcard2 px-3 py-2 rounded-lg text-sm">
+            <input type="checkbox" class="domain-check" value="culture" checked>人文文化
+          </label>
+          <label class="flex items-center gap-2 bg-darkcard2 px-3 py-2 rounded-lg text-sm">
+            <input type="checkbox" class="domain-check" value="econ" checked>经济学
+          </label>
+          <label class="flex items-center gap-2 bg-darkcard2 px-3 py-2 rounded-lg text-sm">
+            <input type="checkbox" class="domain-check" value="health" checked>健康生活
+          </label>
+        </div>
+        <div class="mt-3 flex gap-2">
+          <button id="checkAllBtn" class="flex-1 bg-slate-700 hover:bg-slate-600 py-1.5 rounded-lg text-sm">全选</button>
+          <button id="clearAllBtn" class="flex-1 bg-slate-700 hover:bg-slate-600 py-1.5 rounded-lg text-sm">清空</button>
+          <button id="confirmDomainBtn" class="flex-1 bg-amberbtn hover:bg-amber-500 text-black py-1.5 rounded-lg text-sm font-semibold">确定</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 抽取模式 -->
+    <div>
+      <label class="block text-xs text-slate-400 mb-1">抽取模式</label>
+      <select id="mode" class="w-full bg-darkcard border border-slate-600 rounded-lg px-3 py-2 text-sm">
+        <option value="both">两者混合</option>
+        <option value="question">只抽思考题</option>
+        <option value="word">只抽词条</option>
+      </select>
+    </div>
+
+    <!-- 搜集时长 -->
+    <div>
+      <label class="block text-xs text-slate-400 mb-1">搜集时长(分钟)</label>
+      <select id="collectTime" class="w-full bg-darkcard border border-slate-600 rounded-lg px-3 py-2 text-sm">
+        <option value="3">3</option>
+        <option value="5">5</option>
+        <option value="10">10</option>
+        <option value="15" selected>15</option>
+        <option value="20">20</option>
+      </select>
+    </div>
+
+    <!-- 输出时长 -->
+    <div>
+      <label class="block text-xs text-slate-400 mb-1">输出时长(分钟)</label>
+      <select id="outTime" class="w-full bg-darkcard border border-amber-400 rounded-lg px-3 py-2 text-sm">
+        <option value="0.5">30秒</option>
+        <option value="1" selected>1分钟</option>
+        <option value="2">2分钟</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- 中间大选题卡片 -->
+  <div id="cardTopic" class="bg-darkcard rounded-2xl p-6 md:p-10 text-center min-h-[420px] flex flex-col justify-center items-center shadow-lg mb-4">
+    <div id="keyword" class="text-6xl md:text-8xl font-extrabold mb-5 leading-tight">心流</div>
+    <div id="prompt" class="text-xl md:text-3xl text-slate-300 leading-relaxed px-2">你做什么最容易进入心流？怎么增加这类时间？</div>
+  </div>
+
+  <!-- 底部控制区：更小、更紧凑 -->
+  <div class="bg-darkcard rounded-2xl p-4 shadow-lg">
+    <div class="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+      <!-- 滚动选题大按钮 -->
+      <button id="startRollBtn" class="flex-1 bg-amberbtn hover:bg-amber-500 text-black font-bold py-4 rounded-2xl text-lg shadow-md">
+        开始滚动选题
+      </button>
+
+      <!-- 计时区 -->
+      <div class="flex items-center gap-2">
+        <div id="timerDisplay" class="text-4xl md:text-5xl font-extrabold tracking-wider bg-darkcard2 px-4 py-2 rounded-xl min-w-[140px] text-center">15:00</div>
+
+        <button id="startTimerBtn" class="bg-blue-500 hover:bg-blue-600 py-2 px-3 rounded-xl text-sm font-semibold">开始计时</button>
+        <button id="pauseTimerBtn" class="bg-orange-500 hover:bg-orange-600 py-2 px-3 rounded-xl text-sm font-semibold">暂停</button>
+        <button id="resetBtn" class="bg-slate-500 hover:bg-slate-600 py-2 px-3 rounded-xl text-sm font-semibold">重置</button>
+        <button id="rollNewBtn" class="bg-green-600 hover:bg-green-700 py-2 px-3 rounded-xl text-sm font-semibold">换个选题</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 历史记录面板 -->
+<div id="historyPanel" class="history-panel fixed top-0 right-0 h-screen w-80 bg-darkcard p-5 overflow-y-auto z-50">
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-xl font-bold">历史记录</h2>
+    <button id="closeHistoryBtn" class="text-2xl">&times;</button>
+  </div>
+
+  <div class="mb-4 space-y-3">
+    <label class="flex items-center gap-2 bg-darkcard2 p-3 rounded-lg">
+      <input type="checkbox" id="noRepeatCheck">
+      <span>抽取内容永不重复</span>
+    </label>
+    <button id="clearHistoryBtn" class="w-full bg-red-600 hover:bg-red-700 py-3 rounded-lg font-semibold">清空全部历史</button>
+  </div>
+
+  <div id="historyList" class="space-y-3 text-sm"></div>
+</div>
+
+<script>
+const bank = {
+psych:[
+"心流","认知失调","证实偏见","禀赋效应","吊桥效应","习得性无助","自我效能感","投射效应","晕轮效应","达克效应",
+"旁观者效应","从众效应","锚定效应","损失厌恶","内在动机","依恋类型","情绪ABC理论","归因偏差","刻板印象","内隐记忆",
+"外显记忆","工作记忆","长时记忆","闪光灯记忆","替代性创伤","共情疲劳","讨好型人格","高敏感人格","回避型依恋","焦虑型依恋",
+"安全型依恋","恐惧回避型依恋","认知负荷","元认知","认知重构","接纳承诺疗法","正念","躯体化","解离","强迫思维",
+"反刍思维","灾难化思维","合理化","压抑","否认","升华","置换","反向形成","退行","理智化",
+"焦点效应","透明度错觉","虚假共识效应","自我服务偏差","基本归因错误","行动者观察者偏差","光环效应","近因效应","首因效应","单纯曝光效应",
+"社会认同","社会助长","社会惰化","责任分散","去个体化","群体极化","群体思维","登门槛效应","门面效应","互惠原则",
+"稀缺效应","权威效应","对比效应","延迟满足","成长型思维","固定型思维","自我妨碍","习得性乐观","控制感","自我决定理论",
+"自主感","胜任感","关联感","认知评价理论","心智能量","心理弹性","复原力","创伤后成长","存在性焦虑","存在性内疚",
+"情绪粒度","情绪调节","情绪隔离","情绪压抑","情绪宣泄","情绪传染","情绪共情","认知共情","心智理论","读心术偏差",
+"躯体标记假说","内感受","内感受觉察","交感神经","副交感神经","迷走神经","战斗逃跑冻结反应","高唤醒","低唤醒","稳态",
+"感觉寻求","感觉剥夺","感觉过载","感官敏化","感官脱敏","联觉","联觉记忆","阈下刺激","启动效应","语义启动",
+"概念启动","知觉启动","负启动效应","抑制控制","执行功能","工作记忆容量","认知抑制","任务切换","计划能力","监控能力",
+"冲动控制","延迟折扣","时间贴现","即时奖赏偏好","间隔效应","测试效应","精细复述","维持复述","编码特异性","提取线索",
+"遗忘曲线","前摄抑制","倒摄抑制","记忆巩固","记忆再巩固","错误记忆","植入记忆","自传体记忆","情景记忆","语义记忆",
+"前瞻记忆","回溯记忆","源记忆","元记忆","舌尖现象","遗忘症","顺行性遗忘","逆行性遗忘","前瞻性遗忘","压抑性遗忘",
+"社会比较理论","上行比较","下行比较","身份认同","社会认同理论","自我概念","理想自我","应该自我","真实自我","自我差异理论",
+"自恋","脆弱型自恋","浮夸型自恋","自尊","内隐自尊","外显自尊","自我怜悯","自我批判","羞耻感","内疚感",
+"羞耻和内疚分离","道德情绪","道德推脱","道德许可效应","认知失调理论","努力合理化","选择合理化","决策后失调","态度改变","说服的双路径模型",
+"中心路径说服","边缘路径说服","睡眠瘫痪","入睡前幻觉","觉醒前幻觉","快速眼动睡眠","慢波睡眠","睡眠惯性","睡眠压力","睡眠稳态",
+"昼夜节律","时相延迟","时相提前","光照调节褪黑素","褪黑素","腺苷","睡眠驱力","失眠","入睡困难","维持困难",
+"早醒","睡眠呼吸暂停","不宁腿综合征","昼夜节律紊乱","昼夜颠倒","嗜睡症","发作性睡病","催眠暗示","暗示感受性","催眠失忆",
+"安慰剂效应","反安慰剂效应","期望效应","主试效应","被试效应","霍桑效应","皮格马利翁效应","罗森塔尔效应","安慰剂疼痛缓解","条件化安慰剂",
+"跨通道整合","多感官整合","多感官错觉","麦格克效应","联觉启动","时间错觉","时距估计","时间压缩","时间延展","主观时间",
+"心理时间旅行","情景未来思维","情景回忆","反事实思维","上行反事实","下行反事实","后悔情绪","庆幸情绪","预期后悔","体验后悔",
+"损失框架","收益框架","框架效应","风险偏好","风险厌恶","风险寻求","确定效应","确定性偏见","孤立效应","分离效应",
+"禀赋效应","现状偏差","默认效应","沉没成本谬误","沉没成本执念","机会成本忽视","心理账户","标记账户","分类账户","预算账户",
+"启发式判断","代表性启发","可得性启发","锚定启发","模拟启发","情感启发","情绪启发","认知吝啬鬼","系统1","系统2",
+"双加工理论","自动化加工","控制加工","认知负荷过载","注意瞬脱","注意捕获","选择性注意","持续性注意","分配性注意","无意注意",
+"有意注意","内隐注意","外显注意","注意偏向","威胁偏向","奖赏偏向","情绪偏向","注意解离","注意力涣散","ADHD注意缺陷",
+"冲动性","多动冲动","执行功能缺损","时间管理缺陷","情绪失调","感官加工敏感","感官加工障碍","感觉调节障碍","感觉寻求型","感觉回避型",
+"感觉过载崩溃","感官脱敏训练","暴露疗法","系统脱敏","逐级暴露","洪水疗法","想象暴露","现场暴露","接纳疗法","认知解离",
+"认知融合","认知融合解离","想法不是事实","去融合技术","正念觉察","去中心化","观察自我","体验自我","叙事自我","自我叙事",
+"叙事身份","身份叙事重构","意义建构","意义感缺失","意义追寻","价值澄清","价值行动","承诺行动","接纳承诺","认知行为疗法",
+"认知行为模型","自动思维","中间信念","核心信念","图式","早期适应不良图式","图式疗法","图式激活","图式修复","图式重构",
+"理性情绪行为疗法","ABCDE模型","非理性信念","绝对化要求","过分概括化","糟糕至极","认知歪曲","非黑即白","二分思维","灾难化",
+"个人化","读心术","预测未来","情绪推理","贴标签","最小化积极","最大化消极","认知歪曲记录表","思维记录","思维检验",
+"苏格拉底提问","引导发现","证据检验","成本收益分析","行为实验","行为激活","行为回避","回避循环","安全行为","安全信号",
+"暴露预防反应","强迫症ERP","侵入性想法","闯入性念头","强迫冲动","强迫行为","心理仪式","思维反刍","担忧反刍","担忧循环",
+"广泛性焦虑","预期焦虑","自由浮动焦虑","惊恐发作","惊恐障碍","场所恐惧","特定恐怖症","社交焦虑","社交恐惧","评价恐惧",
+"害怕负面评价","害怕被拒绝","拒绝敏感","依恋创伤","发育性创伤","复杂性创伤","单事件创伤","创伤再体验","回避症状","高警觉",
+"惊跳反应增强","创伤闪回","躯体闪回","情绪麻木","解离麻木","情感隔离","创伤记忆碎片化","内隐创伤记忆","外显创伤记忆","创伤加工",
+"情绪加工理论","情绪加工通道","情绪加工受阻","情绪加工修复","情绪命名","情绪标注","情绪命名降唤醒","情绪粒度训练","情绪词汇拓展","情绪觉察"
+],
+phil:[
+"存在主义","虚无主义","功利主义","德性伦理","先验","本体论","认识论","自由意志","洞穴喻","知行合一",
+"唯名论","唯实论","现象学","诠释学","解构主义","实用主义","经验论","唯理论","怀疑论","不可知论",
+"先验综合判断","物自体","绝对精神","辩证法","异化","异化劳动","本真存在","常人","向死而生","畏",
+"操心","被抛","筹划","沉沦","决断","主体性","主体间性","他者","凝视","自欺",
+"自在存在","自为存在","存在先于本质","责任","选择的重量","荒诞","反抗荒诞","永恒轮回","强力意志","超人",
+"奴隶道德","主人道德","视角主义","价值重估","中道","中庸","仁","礼","义","理",
+"心即理","知行合一","致良知","格物致知","存天理灭人欲","性善论","性恶论","白板说","天赋观念","快乐主义",
+"犬儒主义","斯多葛主义","禁欲主义","禁欲论","享乐主义","伊壁鸠鲁主义","契约论","自然状态","公意","无知之幕"
+],
+history:[
+"百家争鸣","贞观之治","安史之乱","洋务运动","明治维新","文景之治","光武中兴","开元盛世","靖康之变","土木堡之变",
+"商鞅变法","王安石变法","张居正改革","孝文帝改革","戊戌变法","辛亥革命","新文化运动","五四运动","北伐战争","长征",
+"淝水之战","巨鹿之战","牧野之战","城濮之战","桂陵之战","马陵之战","长平之战","楚汉争霸","七国之乱","八王之乱",
+"玄武门之变","陈桥兵变","靖难之役","萨尔浒之战","鸦片战争","甲午战争","抗日战争","解放战争","希波战争","伯罗奔尼撒战争",
+"亚历山大东征","罗马共和","罗马帝国分裂","西罗马灭亡","十字军东征","黑死病","文艺复兴","宗教改革","启蒙运动","法国大革命",
+"工业革命","光荣革命","美国独立战争","南北战争","一战","二战","冷战","苏联解体","大航海时代","奥斯曼崛起"
+],
+culture:[
+"中庸","礼乐文化","魏晋风骨","文人画","边塞诗","楚辞","汉赋","唐诗","宋词","元曲",
+"魏晋玄学","竹林七贤","山水田园诗","田园美学","茶道","香道","花道","书法气韵","碑学","帖学",
+"留白","写意","工笔","天人合一","道法自然","逍遥游","齐物论","浩然之气","民胞物与","格物",
+"古琴文化","昆曲","京剧","皮影","剪纸","年画","石窟艺术","敦煌壁画","兰亭序","洛神赋",
+"风骨","气韵","意境","意境美学","比兴","赋比兴","风雅颂","楚辞香草美人","怀古咏史","送别意象",
+"乡愁意象","月意象","柳意象","松竹梅兰","君子四艺","琴棋书画","三纲五常","五常","四维八德","士大夫精神",
+"西方古典悲剧","古希腊神话","史诗精神","骑士精神","人文主义","浪漫主义美学","古典主义","现实主义","现代主义","后现代主义"
+],
+econ:[
+"机会成本","边际效用","沉没成本","比较优势","供需弹性","边际递减效应","边际收益","边际成本","规模经济","规模不经济",
+"沉没成本谬误","心理账户","禀赋效应","替代效应","收入效应","吉芬商品","凡勃伦商品","奢侈品效应","公共物品","私人物品",
+"外部性","正外部性","负外部性","科斯定理","交易成本","信息不对称","逆向选择","道德风险","柠檬市场","信号理论",
+"价格歧视","一级价格歧视","二级价格歧视","三级价格歧视","垄断竞争","寡头垄断","完全垄断","完全竞争市场","市场失灵","政府失灵",
+"通货膨胀","通货紧缩","CPI","PPI","M0 M1 M2","流动性陷阱","乘数效应","挤出效应","财政政策","货币政策",
+"准备金率","基准利率","公开市场操作","汇率","购买力平价","利率平价","资本流动","比较优势","绝对优势","贸易壁垒",
+"关税","配额","自由贸易","要素禀赋","人力资本","人力资本投资","折旧","折旧率","现金流","净现值",
+"折现率","复利","单利","资产负债表","利润表","现金流量表","杠杆","财务杠杆","经营杠杆","复利效应"
+],
+health:[
+"睡眠周期","腹式呼吸","慢性炎症","久坐危害","膳食纤维","蛋白质需求","优质脂肪","GI血糖指数","升糖负荷","胰岛素波动",
+"基础代谢","静息消耗","非运动消耗NEAT","食物热效应","热量缺口","热量盈余","瘦体重","体脂率","肌肉蛋白合成","肌肉分解",
+"延迟性酸痛DOMS","离心收缩损伤","向心收缩","等长收缩","关节活动度","本体感觉","平衡能力","核心稳定","腹内压","呼吸模式",
+"胸式呼吸","过度通气","呼吸性碱中毒","自主神经平衡","迷走神经张力","心率变异性HRV","静态心率","恢复信号","过度训练综合征","训练超量恢复",
+"炎症因子","氧化应激","抗氧化","自由基","肠道菌群","短链脂肪酸","肠脑轴","益生菌","益生元","膳食纤维分类",
+"水溶性纤维","非水溶性纤维","排便动力学","盆底肌功能","痔疮诱因","肛裂预防","饮水节律","电解质平衡","钠钾镁钙","脱水信号",
+"电解质紊乱","运动补糖","糖原储备","肌糖原","肝糖原","碳水负荷","低血糖反应","运动性贫血","铁吸收","维生素D",
+"维生素B族","Omega3","饱和脂肪","反式脂肪","膳食胆固醇","尿酸","痛风诱因","嘌呤代谢","压力激素皮质醇","皮质醇节律",
+"昼夜皮质醇节律","慢性压力","压力性进食","情绪性进食","饥饿激素瘦素","瘦素抵抗","饥饿素","昼夜进食窗口","时间限制性进食","轻断食",
+"静态拉伸","动态热身","泡沫轴放松","筋膜放松","扳机点","肌筋膜疼痛","腕管综合征","腱鞘炎","肌腱修复周期","扭伤分级",
+"冰敷指征","热敷指征","微循环","淋巴回流","水肿管理","姿势代偿","上交叉综合征","下交叉综合征","骨盆前倾","骨盆后倾"
+]
+};
+
+const tpls = [
+  (w)=>`${w}是什么？它在生活里会怎么影响我们？`,
+  (w)=>`结合你的经历，谈谈你对【${w}】的理解。`,
+  (w)=>`我们该如何利用${w}，改善自己的状态？`,
+  (w)=>`很多人误解了${w}，误区一般是什么？`,
+  (w)=>`如果用一句话向普通人解释${w}，你会怎么说？`
+]
+
+let history = JSON.parse(localStorage.getItem("cogpitch_history") || "[]")
+let usedWords = JSON.parse(localStorage.getItem("cogpitch_used") || "[]")
+let noRepeat = localStorage.getItem("cogpitch_norepeat") === "true"
+document.getElementById('noRepeatCheck').checked = noRepeat
+
+function getCheckedPool(){
+  const checkDomains = Array.from(document.querySelectorAll('.domain-check:checked')).map(el=>el.value)
+  if(checkDomains.length === 0){
+    alert("至少勾选一个领域！")
+    return []
+  }
+  let pool = []
+  checkDomains.forEach(key=> pool = pool.concat(bank[key]))
+  return pool
+}
+
+function renderHistory(){
+  const wrap = document.getElementById('historyList')
+  wrap.innerHTML = ""
+  if(history.length === 0){
+    wrap.innerHTML = `<div class="text-slate-400">暂无记录</div>`
+    return
+  }
+  history.slice().reverse().forEach(item=>{
+    const div = document.createElement('div')
+    div.className = "border border-slate-600 p-3 rounded-lg"
+    div.innerHTML = `
+      <div class="text-amber-300">${item.date}</div>
+      <div class="font-bold text-lg">${item.word}</div>
+      <div class="text-slate-300 mt-1">${item.question}</div>
+    `
+    wrap.appendChild(div)
+  })
+}
+
+function saveStorage(){
+  localStorage.setItem("cogpitch_history", JSON.stringify(history))
+  localStorage.setItem("cogpitch_used", JSON.stringify(usedWords))
+  localStorage.setItem("cogpitch_norepeat", String(noRepeat))
+}
+
+// 音效初始化
+let audioCtx = null
+function ensureAudio(){
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+  }
+  if(audioCtx.state === 'suspended'){
+    audioCtx.resume()
+  }
+}
+
+// 抽卡滚动：卡牌翻动沙沙音效
+function playRollSound(){
+  ensureAudio()
+  const osc = audioCtx.createOscillator()
+  const gain = audioCtx.createGain()
+  const filter = audioCtx.createBiquadFilter()
+  filter.type = "highpass"
+  filter.frequency.value = 1800
+  osc.type = 'triangle'
+  osc.frequency.value = 220 + Math.random() * 180
+  gain.gain.value = 0.03
+  osc.connect(filter)
+  filter.connect(gain)
+  gain.connect(audioCtx.destination)
+  osc.start()
+  gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.06)
+  osc.stop(audioCtx.currentTime + 0.07)
+}
+
+// 抽卡定格：卡牌选中清脆叮声（卡牌落桌）
+function playSelectSound(){
+  ensureAudio()
+  const t0 = audioCtx.currentTime
+  // 主音
+  const osc1 = audioCtx.createOscillator()
+  const gain1 = audioCtx.createGain()
+  osc1.type = 'sine'
+  osc1.frequency.value = 880
+  gain1.gain.setValueAtTime(0, t0)
+  gain1.gain.exponentialRampToValueAtTime(0.12, t0 + 0.01)
+  gain1.gain.exponentialRampToValueAtTime(0.001, t0 + 0.22)
+  osc1.connect(gain1)
+  gain1.connect(audioCtx.destination)
+  osc1.start(t0)
+  osc1.stop(t0 + 0.24)
+
+  // 轻微低频衬音，像卡牌拍桌面的闷响
+  const osc2 = audioCtx.createOscillator()
+  const gain2 = audioCtx.createGain()
+  osc2.type = 'sine'
+  osc2.frequency.value = 220
+  gain2.gain.setValueAtTime(0, t0)
+  gain2.gain.exponentialRampToValueAtTime(0.06, t0 + 0.01)
+  gain2.gain.exponentialRampToValueAtTime(0.001, t0 + 0.12)
+  osc2.connect(gain2)
+  gain2.connect(audioCtx.destination)
+  osc2.start(t0)
+  osc2.stop(t0 + 0.14)
+}
+
+let rollTimer = null
+let rollingState = false
+const cardTopic = document.getElementById('cardTopic')
+const keywordDom = document.getElementById('keyword')
+const promptDom = document.getElementById('prompt')
+
+function startRoll(){
+  const pool = getCheckedPool()
+  if(pool.length <= 0) return
+
+  if(noRepeat){
+    const leftPool = pool.filter(w=>!usedWords.includes(w))
+    if(leftPool.length === 0){
+      alert("当前选中领域词条已经全部抽完，请清空历史或更换领域！")
+      return
+    }
+  }
+
+  ensureAudio()
+  rollingState = true
+  cardTopic.classList.add('scroll-active')
+
+  rollTimer = setInterval(()=>{
+    const tempPool = getCheckedPool()
+    const pick = tempPool[Math.floor(Math.random()*tempPool.length)]
+    const mode = document.getElementById('mode').value
+
+    keywordDom.innerText = pick
+
+    if(mode === 'word'){
+      promptDom.innerText = ""
+    }else{
+      const qFn = tpls[Math.floor(Math.random()*tpls.length)]
+      promptDom.innerText = qFn(pick)
+    }
+
+    playRollSound()
+  }, 65)
+}
+
+function stopRoll(){
+  clearInterval(rollTimer)
+  rollingState = false
+  cardTopic.classList.remove('scroll-active')
+
+  const pick = keywordDom.innerText
+  const q = promptDom.innerText
+  const now = new Date()
+  const dateStr = now.toLocaleString('zh-CN')
+
+  history.push({date:dateStr, word:pick, question:q})
+  usedWords.push(pick)
+  saveStorage()
+  renderHistory()
+
+  playSelectSound()
+}
+
+let totalSeconds = 15 * 60
+let remain = totalSeconds
+let timerId = null
+let timerRunning = false
+const timerDom = document.getElementById('timerDisplay')
+
+function formatTime(s){
+  const m = Math.floor(s / 60)
+  const sec = s % 60
+  return `${m}:${String(sec).padStart(2,'0')}`
+}
+timerDom.innerText = formatTime(remain)
+
+document.getElementById('collectTime').onchange = function(){
+  const min = Number(this.value)
+  totalSeconds = min * 60
+  remain = totalSeconds
+  timerDom.innerText = formatTime(remain)
+  if(timerId){clearInterval(timerId); timerRunning = false}
+}
+
+document.getElementById('startRollBtn').onclick = function(){
+  if(rollingState){
+    stopRoll()
+    this.innerText = "开始滚动选题"
+    this.classList.remove('bg-red-500','hover:bg-red-600')
+    this.classList.add('bg-amberbtn','hover:bg-amber-500')
+  }else{
+    startRoll()
+    this.innerText = "停止并锁定选题"
+    this.classList.remove('bg-amberbtn','hover:bg-amber-500')
+    this.classList.add('bg-red-500','hover:bg-red-600')
+  }
+}
+
+document.getElementById('startTimerBtn').onclick = ()=>{
+  ensureAudio()
+  if(timerRunning) return
+  timerRunning = true
+  timerId = setInterval(()=>{
+    remain--
+    timerDom.innerText = formatTime(remain)
+    if(remain <= 0){
+      clearInterval(timerId)
+      timerRunning = false
+      alert("练习时间结束！")
+    }
+  },1000)
+}
+
+document.getElementById('pauseTimerBtn').onclick = ()=>{
+  ensureAudio()
+  clearInterval(timerId)
+  timerRunning = false
+}
+
+document.getElementById('resetBtn').onclick = ()=>{
+  ensureAudio()
+  clearInterval(timerId)
+  timerRunning = false
+  remain = totalSeconds
+  timerDom.innerText = formatTime(remain)
+}
+
+document.getElementById('rollNewBtn').onclick = ()=>{
+  if(rollingState) return
+  ensureAudio()
+  startRoll()
+  setTimeout(()=> stopRoll(), 320)
+}
+
+// 领域面板
+const domainBtn = document.getElementById('domainBtn')
+const domainPanel = document.getElementById('domainPanel')
+const domainBtnText = document.getElementById('domainBtnText')
+
+function updateDomainBtnText(){
+  const checked = Array.from(document.querySelectorAll('.domain-check:checked'))
+  if(checked.length === 0){
+    domainBtnText.innerText = "请选择领域"
+  }else if(checked.length === document.querySelectorAll('.domain-check').length){
+    domainBtnText.innerText = "全部领域"
+  }else{
+    domainBtnText.innerText = checked.map(el=> el.parentElement.innerText.trim()).join('、')
+  }
+}
+
+domainBtn.onclick = (e)=>{
+  e.stopPropagation()
+  domainPanel.classList.toggle('open')
+}
+
+document.getElementById('confirmDomainBtn').onclick = ()=>{
+  updateDomainBtnText()
+  domainPanel.classList.remove('open')
+}
+
+document.getElementById('checkAllBtn').onclick = ()=>{
+  document.querySelectorAll('.domain-check').forEach(el=> el.checked = true)
+}
+
+document.getElementById('clearAllBtn').onclick = ()=>{
+  document.querySelectorAll('.domain-check').forEach(el=> el.checked = false)
+}
+
+document.addEventListener('click', (e)=>{
+  if(!domainPanel.contains(e.target) && !domainBtn.contains(e.target)){
+    domainPanel.classList.remove('open')
+  }
+})
+
+// 历史面板
+const panel = document.getElementById('historyPanel')
+document.getElementById('openHistoryBtn').onclick = ()=> panel.classList.add('open')
+document.getElementById('closeHistoryBtn').onclick = ()=> panel.classList.remove('open')
+
+document.getElementById('noRepeatCheck').onchange = function(){
+  noRepeat = this.checked
+  saveStorage()
+}
+
+document.getElementById('clearHistoryBtn').onclick = function(){
+  if(confirm("确定清空全部历史记录？清空后“永不重复”限制也会解除。")){
+    history = []
+    usedWords = []
+    saveStorage()
+    renderHistory()
+  }
+}
+
+updateDomainBtnText()
+renderHistory()
+</script>
+</body>
+</html>
