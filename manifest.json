@@ -1,0 +1,14 @@
+{
+  "short_name": "口播抽题",
+  "name": "Cogpitch口播练习器",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#121622",
+  "theme_color": "#121622",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='12' fill='%23f59e0b'/><text x='50' y='62' font-size='48' text-anchor='middle' fill='white'>播</text></svg>",
+      "sizes": "100x100"
+    }
+  ]
+}
